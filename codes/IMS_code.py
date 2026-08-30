@@ -1,6 +1,6 @@
 import mysql.connector as c
-import sys
 import csv
+import sys
 from datetime import datetime
 
 # =========================================================
@@ -167,6 +167,12 @@ def add_product():
         qty = int(input("Enter Quantity: "))
         price = float(input("Enter Price: "))
         supplier = input("Enter Supplier Name: ")
+        if not validate_text(category):
+            print("Invalid Category")
+            return
+        if not validate_text(supplier):
+            print("Invalid Supplier Name")
+            return
         if not validate_positive_number(qty):
             print("Quantity Must Be Greater Than Zero")
             return
@@ -187,8 +193,11 @@ def add_product():
         VALUES(%s, %s, %s, %s, %s)
         """
         values = (pname, category, qty, price, supplier)
-        execute_query(query, values)
-        print("Product Added Successfully")
+        success = execute_query(query, values)
+        if success:
+            print("Product Added Successfully")
+        else:
+            print("Product Could Not Be Added")
     except ValueError:
         print("Invalid Input")
 
@@ -202,24 +211,10 @@ def display_products():
         print("No Products Available")
         return
     print("\n================ PRODUCT DETAILS ================\n")
-    print(
-        f"{'ID':<5}"
-        f"{'NAME':<20}"
-        f"{'CATEGORY':<15}"
-        f"{'QTY':<10}"
-        f"{'PRICE':<12}"
-        f"{'SUPPLIER'}"
-    )
-    print("-" * 80)
+    print("ID | NAME | CATEGORY | QTY | PRICE | SUPPLIER")
+    print("-" * 60)
     for i in records:
-        print(
-            f"{i[0]:<5}"
-            f"{i[1]:<20}"
-            f"{i[2]:<15}"
-            f"{i[3]:<10}"
-            f"{i[4]:<12}"
-            f"{i[5]}"
-        )
+        print(i[0], "|", i[1], "|", i[2], "|", i[3], "|", i[4], "|", i[5])
 
 # ================= SEARCH PRODUCT =================
 
@@ -254,14 +249,7 @@ def search_product():
         if records:
             print("\n========== PRODUCTS FOUND ==========\n")
             for i in records:
-                print(
-                    f"{i[0]:<5}"
-                    f"{i[1]:<20}"
-                    f"{i[2]:<15}"
-                    f"{i[3]:<10}"
-                    f"{i[4]:<12}"
-                    f"{i[5]}"
-                )
+                print(i[0], "|", i[1], "|", i[2], "|", i[3], "|", i[4], "|", i[5])
         else:
             print("No Products Found")
     except ValueError:
@@ -285,15 +273,18 @@ def update_product():
             print("Quantity Cannot Be Negative")
             return
         if not validate_positive_number(new_price):
-            print("Quantity Must Be Greater Than Zero")
+            print("Price Must Be Greater Than Zero")
             return
         query = """
         UPDATE products
         SET Quantity=%s, Price=%s
         WHERE Product_ID=%s
         """
-        execute_query(query, (new_qty, new_price, pid))
-        print("Product Updated Successfully")
+        success = execute_query(query, (new_qty, new_price, pid))
+        if success:
+            print("Product Updated Successfully")
+        else:
+            print("Product Could not be Updated")
     except ValueError:
         print("Invalid Input")
 
@@ -310,8 +301,11 @@ def delete_product():
             print("Product Not Found")
             return
         query = "DELETE FROM products WHERE Product_ID=%s"
-        execute_query(query, (pid,))
-        print("Product Deleted Successfully")
+        success = execute_query(query, (pid,))
+        if success:
+            print("Product Deleted Successfully")
+        else:
+            print("Product Could Not Be Deleted")
     except ValueError:
         print("Invalid Input")
 
@@ -349,33 +343,43 @@ def purchase_product(role, username):
         SET Quantity=%s
         WHERE Product_ID=%s
         """
-        purchase_success=execute_query(update_query, (new_stock, pid))
+        purchase_success = execute_query(update_query, (new_stock, pid))
         if not purchase_success:
             print("Purchase Failed")
             return
 
         # ================= SAVE PURCHASE TO CSV =================
 
-        count = 0
+        purchase_id = 1
         with open('purchase_history.csv','r',newline='') as file:
             reader = csv.reader(file)
             next(reader)
             for row in reader:
-                count+=1
-            purchase_id=count+1
+                if int(row[0]) >= purchase_id:
+                    purchase_id = int(row[0]) + 1
         purchase_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open('purchase_history.csv','a',newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow([
-                purchase_id,
-                pid,
-                pname,
-                qty_purchased,
-                total_price,
-                username,
-                purchase_date
-            ])
-
+        try:
+            with open('purchase_history.csv', 'a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([
+                    purchase_id,
+                    pid,
+                    pname,
+                    qty_purchased,
+                    total_price,
+                    username,
+                    purchase_date
+                ])
+        except Exception:
+            print("Unable to Save Purchase. Purchase Cancelled.")
+            restore_query = """
+            UPDATE products
+            SET Quantity=%s
+            WHERE Product_ID=%s
+            """
+            execute_query(restore_query, (stock, pid))
+            return
+        print("Purchase Successful")
         # ================= PURCHASE BILL =================
 
         print("\n========== PURCHASE BILL ==========")
@@ -392,8 +396,8 @@ def purchase_product(role, username):
             low_stock_alert()
     except ValueError:
         print("Invalid Input")
-    except Exception as e:
-        print("Error Saving Purchase:", e)
+    except Exception:
+        print("Purchase Failed. Please Try Again.")
 
 # ================= RESTOCK PRODUCT =================
 
@@ -417,8 +421,11 @@ def restock_product():
         SET Quantity=%s
         WHERE Product_ID=%s
         """
-        execute_query(query, (new_qty, pid))
-        print("Stock Updated Successfully")
+        success = execute_query(query, (new_qty, pid))
+        if success:
+            print("Stock Updated Successfully")
+        else:
+            print("Stock Could Not Be Updated")
     except ValueError:
         print("Invalid Input")
 
@@ -441,24 +448,17 @@ def purchase_history(role, username):
         return
 
     print("\n================ PURCHASE HISTORY ================\n")
-    print(
-        f"{'ID':<5}"
-        f"{'PRODUCT':<20}"
-        f"{'QTY':<8}"
-        f"{'TOTAL':<12}"
-        f"{'USER':<12}"
-        f"{'DATE'}"
-    )
+    print("ID | PRODUCT | QTY | TOTAL | USER | DATE")
     print("-" * 85)
     for record in records:
         print(
-            f"{record[0]:<5}"
-            f"{record[2]:<20}"
-            f"{record[3]:<8}"
-            f"Rs.{float(record[4]):<9.2f}"
-            f"{record[5]:<12}"
-            f"{record[6]}"
-        )
+        record[0], "|",
+        record[2], "|",
+        record[3], "|",
+        "Rs." + str(float(record[4])), "|",
+        record[5], "|",
+        record[6]
+    )
 
 # ================= MAIN MENU =================
 
@@ -471,25 +471,21 @@ def main():
             while True:
                 print("\n========== INVENTORY MANAGEMENT SYSTEM ==========")
                 menu = {
-1:"Display Products",
-2:"Search Product",
-3:"Purchase History"}
+                    1: "Display Products",
+                    2: "Search Product",
+                    3: "Purchase History"
+                }
                 # Admin and Staff options
                 if role in ['admin', 'staff']:
-
                     menu[len(menu) + 1] = "Add Product"
                     menu[len(menu) + 1] = "Update Product"
                 #Common purchase option
-
                 menu[len(menu) + 1] = "Purchase Product"
                 #Admin and Staff can restock
                 if role in ['admin', 'staff']:
-
                     menu[len(menu) + 1] = "Restock Product"
                 #Admin can delete
-
                 if role == 'admin':
-
                     menu[len(menu) + 1] = "Delete Product"
                 # Logout and Exit
                 menu[len(menu) + 1] = "Logout"
@@ -500,9 +496,7 @@ def main():
                 try:
                     ch = int(input("Enter Your Choice: "))
                     if ch not in menu:
-
                         print("Invalid Choice")
-
                         continue
                     description=menu[ch]
                     if description == "Display Products":
