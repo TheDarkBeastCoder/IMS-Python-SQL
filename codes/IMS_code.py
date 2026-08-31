@@ -20,7 +20,7 @@ from datetime import datetime
 # ================= DATABASE CONNECTION =================
 
 try:
-    con = c.connect(host='localhost',user='root',password='password')
+    con = c.connect(host='localhost',user='root',password='password',charset='utf8')
     if con.is_connected():
         print("Database Connected Successfully")
 except c.Error as e:
@@ -46,10 +46,34 @@ CREATE TABLE IF NOT EXISTS products(
 )
 """)
 
+# ================= INSERT SAMPLE PRODUCTS =================
+
+cursor.execute("SELECT * FROM products")
+products = cursor.fetchall()
+if not products:
+    sample_products = [
+        ('Laptop', 'Electronics', 10, 55000.00, 'Dell'),
+        ('Wireless Mouse', 'Electronics', 25, 800.00, 'Logitech'),
+        ('Keyboard', 'Electronics', 20, 1200.00, 'HP'),
+        ('Office Chair', 'Furniture', 8, 7500.00, 'Featherlite'),
+        ('Notebook', 'Stationery', 50, 80.00, 'Classmate'),
+        ('Pen', 'Stationery', 100, 20.00, 'Reynolds'),
+        ('Water Bottle', 'Accessories', 30, 350.00, 'Milton'),
+        ('Backpack', 'Accessories', 15, 1500.00, 'Wildcraft'),
+        ('Printer', 'Electronics', 5, 12000.00, 'Canon'),
+        ('USB Cable', 'Electronics', 40, 250.00, 'Portronics')
+    ]
+    insert_query = """
+    INSERT INTO products
+    (Product_Name, Category, Quantity, Price, Supplier)
+    VALUES (%s, %s, %s, %s, %s)
+    """
+    cursor.executemany(insert_query, sample_products)
+    con.commit()
+
 # ================= INITIALIZE PURCHASE CSV =================
 
 try:
-
     with open("purchase_history.csv", "r"):
         pass
 except FileNotFoundError:
