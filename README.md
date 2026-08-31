@@ -1,5 +1,5 @@
-IMS-Python-SQL
 INVENTORY MANAGEMENT SYSTEM
+
 Features:
 - Role Based Login
 - Product Catalog Display
